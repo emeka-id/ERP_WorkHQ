@@ -16,3 +16,18 @@ A simple desktop ERP prototype built with Python Tkinter.
 ```bash
 python app.py
 ```
+
+## Build Windows .exe
+On a Windows machine, run:
+
+```bat
+build_exe.bat
+```
+
+After the build succeeds, the executable will be created at:
+
+```text
+dist\ERPSuite Lite.exe
+```
+
+Copy `dist\ERPSuite Lite.exe` to your Desktop to launch the app directly from Desktop.
