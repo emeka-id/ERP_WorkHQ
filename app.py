@@ -68,17 +68,20 @@ class ERPSuiteLiteApp(tk.Tk):
         notebook = ttk.Notebook(self.main_frame)
         notebook.pack(fill="both", expand=True)
 
-        self.vendors_tab = ttk.Frame(notebook, padding=10)
+        self.add_vendor_tab = ttk.Frame(notebook, padding=10)
+        self.view_vendors_tab = ttk.Frame(notebook, padding=10)
         self.invoices_tab = ttk.Frame(notebook, padding=10)
 
-        notebook.add(self.vendors_tab, text="Vendors")
+        notebook.add(self.add_vendor_tab, text="Add Vendor")
+        notebook.add(self.view_vendors_tab, text="View Vendors")
         notebook.add(self.invoices_tab, text="Invoices (AP / AR)")
 
-        self._build_vendors_tab()
+        self._build_add_vendor_tab()
+        self._build_view_vendors_tab()
         self._build_invoices_tab()
 
-    def _build_vendors_tab(self):
-        form = ttk.LabelFrame(self.vendors_tab, text="Add New Vendor", padding=10)
+    def _build_add_vendor_tab(self):
+        form = ttk.LabelFrame(self.add_vendor_tab, text="Add New Vendor", padding=10)
         form.pack(fill="x", padx=5, pady=5)
 
         ttk.Label(form, text="Name").grid(row=0, column=0, sticky="w")
@@ -95,7 +98,8 @@ class ERPSuiteLiteApp(tk.Tk):
 
         ttk.Button(form, text="Add Vendor", command=self.add_vendor).grid(row=0, column=6, padx=10)
 
-        list_frame = ttk.LabelFrame(self.vendors_tab, text="Vendors", padding=10)
+    def _build_view_vendors_tab(self):
+        list_frame = ttk.LabelFrame(self.view_vendors_tab, text="Vendors", padding=10)
         list_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
         columns = ("id", "name", "email", "phone")
@@ -158,6 +162,14 @@ class ERPSuiteLiteApp(tk.Tk):
         ttk.Button(form, text="Save Invoice", command=self.add_invoice).grid(row=2, column=0, columnspan=2, pady=10)
         ttk.Button(form, text="Post Selected Invoice", command=self.post_selected_invoice).grid(row=2, column=2, columnspan=2, pady=10)
 
+        filter_frame = ttk.Frame(self.invoices_tab)
+        filter_frame.pack(fill="x", padx=5, pady=5)
+        ttk.Label(filter_frame, text="Invoice View:").pack(side="left")
+        self.invoice_filter = ttk.Combobox(filter_frame, values=["All", "Posted"], state="readonly", width=12)
+        self.invoice_filter.set("All")
+        self.invoice_filter.pack(side="left", padx=8)
+        self.invoice_filter.bind("<<ComboboxSelected>>", self.filter_invoices)
+
         list_frame = ttk.LabelFrame(self.invoices_tab, text="Invoices", padding=10)
         list_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
@@ -167,6 +179,7 @@ class ERPSuiteLiteApp(tk.Tk):
             self.invoice_tree.heading(c, text=c.upper())
             self.invoice_tree.column(c, width=130)
         self.invoice_tree.pack(fill="both", expand=True)
+        self.invoice_tree.bind("<ButtonRelease-1>", self.open_selected_invoice_details)
         self.invoice_tree.bind("<Double-1>", self.open_selected_invoice_details)
 
         ttk.Label(list_frame, text="Tip: double-click an invoice row to open its details.").pack(anchor="w", pady=5)
@@ -230,6 +243,7 @@ class ERPSuiteLiteApp(tk.Tk):
             iid=str(invoice.id),
             values=(invoice.id, invoice.invoice_number, invoice.invoice_type, vendor_name, f"{invoice.amount:.2f}", invoice.due_date, invoice.status),
         )
+        self.filter_invoices()
 
         self.inv_num_entry.delete(0, tk.END)
         self.inv_amount_entry.delete(0, tk.END)
@@ -267,6 +281,7 @@ class ERPSuiteLiteApp(tk.Tk):
             invoice.due_date,
             invoice.status,
         ))
+        self.filter_invoices()
         messagebox.showinfo("Success", f"Invoice {invoice.invoice_number} posted for payment processing.")
 
     def open_selected_invoice_details(self, _event=None):
@@ -295,6 +310,16 @@ class ERPSuiteLiteApp(tk.Tk):
         for i, (label, value) in enumerate(rows):
             ttk.Label(container, text=f"{label}:", font=("TkDefaultFont", 10, "bold")).grid(row=i, column=0, sticky="nw", pady=4)
             ttk.Label(container, text=str(value), wraplength=260).grid(row=i, column=1, sticky="nw", pady=4)
+
+    def filter_invoices(self, _event=None):
+        selected_filter = self.invoice_filter.get().strip() if hasattr(self, "invoice_filter") else "All"
+        for inv in self.invoices:
+            visible = selected_filter == "All" or inv.status == "Posted"
+            if self.invoice_tree.exists(str(inv.id)):
+                if visible:
+                    self.invoice_tree.reattach(str(inv.id), "", "end")
+                else:
+                    self.invoice_tree.detach(str(inv.id))
 
 
 if __name__ == "__main__":
