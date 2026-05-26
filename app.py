@@ -55,7 +55,7 @@ class ERPSuiteLiteApp(tk.Tk):
 
         ttk.Button(card, text="Sign In", command=self.sign_in).grid(row=2, column=0, columnspan=2, pady=15)
 
-        ttk.Label(card, text="(Any username/password is accepted)").grid(row=3, column=0, columnspan=2)
+        ttk.Label(card, text="Please enter your username/password").grid(row=3, column=0, columnspan=2)
 
     def sign_in(self):
         self.login_frame.destroy()
@@ -65,20 +65,31 @@ class ERPSuiteLiteApp(tk.Tk):
         self.main_frame = ttk.Frame(self, padding=10)
         self.main_frame.pack(fill="both", expand=True)
 
+        top_bar = ttk.Frame(self.main_frame)
+        top_bar.pack(fill="x", pady=(0, 8))
+        ttk.Button(top_bar, text="Sign Out", command=self.sign_out).pack(side="right")
+
         notebook = ttk.Notebook(self.main_frame)
         notebook.pack(fill="both", expand=True)
 
         self.add_vendor_tab = ttk.Frame(notebook, padding=10)
         self.view_vendors_tab = ttk.Frame(notebook, padding=10)
         self.invoices_tab = ttk.Frame(notebook, padding=10)
+        self.posted_invoices_tab = ttk.Frame(notebook, padding=10)
 
         notebook.add(self.add_vendor_tab, text="Add Vendor")
         notebook.add(self.view_vendors_tab, text="View Vendors")
         notebook.add(self.invoices_tab, text="Invoices (AP / AR)")
+        notebook.add(self.posted_invoices_tab, text="Posted Invoices")
 
         self._build_add_vendor_tab()
         self._build_view_vendors_tab()
         self._build_invoices_tab()
+        self._build_posted_invoices_tab()
+
+    def sign_out(self):
+        self.main_frame.destroy()
+        self._build_login()
 
     def _build_add_vendor_tab(self):
         form = ttk.LabelFrame(self.add_vendor_tab, text="Add New Vendor", padding=10)
@@ -108,6 +119,7 @@ class ERPSuiteLiteApp(tk.Tk):
             self.vendor_tree.heading(c, text=c.upper())
             self.vendor_tree.column(c, width=160)
         self.vendor_tree.pack(fill="both", expand=True)
+        ttk.Button(self.view_vendors_tab, text="Delete Selected Vendor", command=self.delete_selected_vendor).pack(anchor="e", padx=5, pady=5)
 
     def add_vendor(self):
         name = self.vendor_name_entry.get().strip()
@@ -143,7 +155,7 @@ class ERPSuiteLiteApp(tk.Tk):
         self.inv_type.grid(row=0, column=3, padx=5, pady=5)
 
         ttk.Label(form, text="Vendor").grid(row=0, column=4, sticky="w")
-        self.vendor_choice = ttk.Combobox(form, values=[], state="readonly", width=25)
+        self.vendor_choice = ttk.Combobox(form, values=[], state="normal", width=25)
         self.vendor_choice.grid(row=0, column=5, padx=5, pady=5)
 
         ttk.Label(form, text="Amount").grid(row=1, column=0, sticky="w")
@@ -179,10 +191,25 @@ class ERPSuiteLiteApp(tk.Tk):
             self.invoice_tree.heading(c, text=c.upper())
             self.invoice_tree.column(c, width=130)
         self.invoice_tree.pack(fill="both", expand=True)
-        self.invoice_tree.bind("<ButtonRelease-1>", self.open_selected_invoice_details)
         self.invoice_tree.bind("<Double-1>", self.open_selected_invoice_details)
 
         ttk.Label(list_frame, text="Tip: double-click an invoice row to open its details.").pack(anchor="w", pady=5)
+        ttk.Button(self.invoices_tab, text="Delete Selected Invoice", command=self.delete_selected_invoice).pack(anchor="e", padx=5, pady=5)
+
+    def _build_posted_invoices_tab(self):
+        list_frame = ttk.LabelFrame(self.posted_invoices_tab, text="Posted Invoices", padding=10)
+        list_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        columns = ("id", "invoice_number", "type", "vendor", "amount", "due_date", "status")
+        self.posted_invoice_tree = ttk.Treeview(list_frame, columns=columns, show="headings", height=15)
+        for c in columns:
+            self.posted_invoice_tree.heading(c, text=c.upper())
+            self.posted_invoice_tree.column(c, width=130)
+        self.posted_invoice_tree.pack(fill="both", expand=True)
+        self.posted_invoice_tree.bind("<Double-1>", self.open_selected_posted_invoice_details)
+
+        ttk.Label(list_frame, text="Tip: double-click a posted invoice row to open its details.").pack(anchor="w", pady=5)
+        ttk.Button(self.posted_invoices_tab, text="Delete Selected Posted Invoice", command=self.delete_selected_posted_invoice).pack(anchor="e", padx=5, pady=5)
 
     def _refresh_vendor_dropdown(self):
         vendor_labels = [f"{v.id} - {v.name}" for v in self.vendors]
@@ -222,8 +249,27 @@ class ERPSuiteLiteApp(tk.Tk):
             messagebox.showerror("Validation", "Due date must be in YYYY-MM-DD format.")
             return
 
-        vendor_id = int(vendor_display.split(" - ")[0])
-        vendor_name = self._vendor_name(vendor_id)
+        vendor_id = None
+        vendor_name = vendor_display
+        if " - " in vendor_display:
+            vendor_id_part = vendor_display.split(" - ")[0]
+            if vendor_id_part.isdigit():
+                vendor_id = int(vendor_id_part)
+                vendor_name = self._vendor_name(vendor_id)
+
+        if vendor_id is None:
+            matching_vendor = next((v for v in self.vendors if v.name.lower() == vendor_display.lower()), None)
+            if matching_vendor:
+                vendor_id = matching_vendor.id
+                vendor_name = matching_vendor.name
+            else:
+                vendor = Vendor(id=self.next_vendor_id, name=vendor_display, email="", phone="")
+                self.next_vendor_id += 1
+                self.vendors.append(vendor)
+                self.vendor_tree.insert("", "end", values=(vendor.id, vendor.name, vendor.email, vendor.phone))
+                self._refresh_vendor_dropdown()
+                vendor_id = vendor.id
+                vendor_name = vendor.name
 
         invoice = Invoice(
             id=self.next_invoice_id,
@@ -244,6 +290,7 @@ class ERPSuiteLiteApp(tk.Tk):
             values=(invoice.id, invoice.invoice_number, invoice.invoice_type, vendor_name, f"{invoice.amount:.2f}", invoice.due_date, invoice.status),
         )
         self.filter_invoices()
+        self.refresh_posted_invoices_tab()
 
         self.inv_num_entry.delete(0, tk.END)
         self.inv_amount_entry.delete(0, tk.END)
@@ -282,6 +329,7 @@ class ERPSuiteLiteApp(tk.Tk):
             invoice.status,
         ))
         self.filter_invoices()
+        self.refresh_posted_invoices_tab()
         messagebox.showinfo("Success", f"Invoice {invoice.invoice_number} posted for payment processing.")
 
     def open_selected_invoice_details(self, _event=None):
@@ -320,6 +368,60 @@ class ERPSuiteLiteApp(tk.Tk):
                     self.invoice_tree.reattach(str(inv.id), "", "end")
                 else:
                     self.invoice_tree.detach(str(inv.id))
+
+    def refresh_posted_invoices_tab(self):
+        if not hasattr(self, "posted_invoice_tree"):
+            return
+        for item in self.posted_invoice_tree.get_children():
+            self.posted_invoice_tree.delete(item)
+        for inv in self.invoices:
+            if inv.status == "Posted":
+                self.posted_invoice_tree.insert(
+                    "",
+                    "end",
+                    iid=str(inv.id),
+                    values=(inv.id, inv.invoice_number, inv.invoice_type, self._vendor_name(inv.vendor_id), f"{inv.amount:.2f}", inv.due_date, inv.status),
+                )
+
+    def delete_selected_vendor(self):
+        selected = self.vendor_tree.selection()
+        if not selected:
+            messagebox.showerror("Selection", "Select a vendor first.")
+            return
+        vendor_id = int(self.vendor_tree.item(selected[0], "values")[0])
+        self.vendors = [v for v in self.vendors if v.id != vendor_id]
+        self.vendor_tree.delete(selected[0])
+        self._refresh_vendor_dropdown()
+
+    def delete_selected_invoice(self):
+        invoice = self._selected_invoice()
+        if not invoice:
+            messagebox.showerror("Selection", "Select an invoice first.")
+            return
+        self.invoices = [inv for inv in self.invoices if inv.id != invoice.id]
+        if self.invoice_tree.exists(str(invoice.id)):
+            self.invoice_tree.delete(str(invoice.id))
+        self.refresh_posted_invoices_tab()
+
+    def delete_selected_posted_invoice(self):
+        selected = self.posted_invoice_tree.selection()
+        if not selected:
+            messagebox.showerror("Selection", "Select a posted invoice first.")
+            return
+        invoice_id = int(selected[0])
+        self.invoices = [inv for inv in self.invoices if inv.id != invoice_id]
+        if self.posted_invoice_tree.exists(str(invoice_id)):
+            self.posted_invoice_tree.delete(str(invoice_id))
+        if self.invoice_tree.exists(str(invoice_id)):
+            self.invoice_tree.delete(str(invoice_id))
+
+    def open_selected_posted_invoice_details(self, _event=None):
+        selected = self.posted_invoice_tree.selection()
+        if not selected:
+            return
+        invoice_id = int(selected[0])
+        self.invoice_tree.selection_set(str(invoice_id))
+        self.open_selected_invoice_details()
 
 
 if __name__ == "__main__":
