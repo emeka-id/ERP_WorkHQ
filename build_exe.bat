@@ -1,17 +1,15 @@
 @echo off
 setlocal
 
-echo Building ERPSuite Lite executable...
-
-python -m pip install pyinstaller
-
+echo Installing ERPSuite Lite build dependencies...
+python -m pip install -r requirements.txt
 if errorlevel 1 (
-  echo Failed to install PyInstaller.
+  echo Failed to install build dependencies.
   exit /b 1
 )
 
-python -m PyInstaller --noconfirm --windowed --onefile --name "ERPSuite Lite" app.py
-
+echo Building ERPSuite Lite executable...
+pyinstaller --noconfirm --windowed --onefile --name "ERPSuite Lite" app.py
 if errorlevel 1 (
   echo Build failed.
   exit /b 1
