@@ -86,10 +86,12 @@ class ERPSuiteLiteApp(tk.Tk):
             self.posted_invoices_tab,
         )
 
-        ttk.Button(nav_frame, text="Add Vendor", command=lambda: self.show_section(self.add_vendor_tab)).pack(side="left", padx=(0, 6))
-        ttk.Button(nav_frame, text="View Vendors", command=lambda: self.show_section(self.view_vendors_tab)).pack(side="left", padx=6)
-        ttk.Button(nav_frame, text="Invoices (AP / AR)", command=lambda: self.show_section(self.invoices_tab)).pack(side="left", padx=6)
-        ttk.Button(nav_frame, text="Posted Invoices", command=lambda: self.show_section(self.posted_invoices_tab)).pack(side="left", padx=6)
+        self.navigation_buttons = {
+            self.add_vendor_tab: self._create_navigation_button(nav_frame, "Add Vendor", "nav_add_vendor_button", self.add_vendor_tab),
+            self.view_vendors_tab: self._create_navigation_button(nav_frame, "View Vendors", "nav_view_vendors_button", self.view_vendors_tab),
+            self.invoices_tab: self._create_navigation_button(nav_frame, "Invoices (AP / AR)", "nav_invoices_ap_ar_button", self.invoices_tab),
+            self.posted_invoices_tab: self._create_navigation_button(nav_frame, "Posted Invoices", "nav_posted_invoices_button", self.posted_invoices_tab),
+        }
 
         self._build_add_vendor_tab()
         self._build_view_vendors_tab()
@@ -101,10 +103,32 @@ class ERPSuiteLiteApp(tk.Tk):
         self.main_frame.destroy()
         self._build_login()
 
+    def _create_navigation_button(self, parent, label, automation_name, section):
+        # Use classic tk.Button instead of ttk.Button so Windows automation
+        # tools such as Blue Prism can spy each navigation target as a
+        # distinct native-style button with a stable widget name and text.
+        button = tk.Button(
+            parent,
+            name=automation_name,
+            text=label,
+            command=lambda: self.show_section(section),
+            takefocus=True,
+            relief=tk.RAISED,
+            borderwidth=2,
+            padx=14,
+            pady=6,
+        )
+        button.pack(side="left", padx=(0, 6))
+        return button
+
     def show_section(self, section):
         for app_section in self.app_sections:
             app_section.pack_forget()
         section.pack(fill="both", expand=True)
+
+        if hasattr(self, "navigation_buttons"):
+            for app_section, button in self.navigation_buttons.items():
+                button.configure(relief=tk.SUNKEN if app_section is section else tk.RAISED)
 
     def _build_add_vendor_tab(self):
         form = ttk.LabelFrame(self.add_vendor_tab, text="Add New Vendor", padding=10)
