@@ -69,27 +69,42 @@ class ERPSuiteLiteApp(tk.Tk):
         top_bar.pack(fill="x", pady=(0, 8))
         ttk.Button(top_bar, text="Sign Out", command=self.sign_out).pack(side="right")
 
-        notebook = ttk.Notebook(self.main_frame)
-        notebook.pack(fill="both", expand=True)
+        nav_frame = ttk.Frame(self.main_frame)
+        nav_frame.pack(fill="x", pady=(0, 8))
 
-        self.add_vendor_tab = ttk.Frame(notebook, padding=10)
-        self.view_vendors_tab = ttk.Frame(notebook, padding=10)
-        self.invoices_tab = ttk.Frame(notebook, padding=10)
-        self.posted_invoices_tab = ttk.Frame(notebook, padding=10)
+        self.content_frame = ttk.Frame(self.main_frame)
+        self.content_frame.pack(fill="both", expand=True)
 
-        notebook.add(self.add_vendor_tab, text="Add Vendor")
-        notebook.add(self.view_vendors_tab, text="View Vendors")
-        notebook.add(self.invoices_tab, text="Invoices (AP / AR)")
-        notebook.add(self.posted_invoices_tab, text="Posted Invoices")
+        self.add_vendor_tab = ttk.Frame(self.content_frame, padding=10)
+        self.view_vendors_tab = ttk.Frame(self.content_frame, padding=10)
+        self.invoices_tab = ttk.Frame(self.content_frame, padding=10)
+        self.posted_invoices_tab = ttk.Frame(self.content_frame, padding=10)
+        self.app_sections = (
+            self.add_vendor_tab,
+            self.view_vendors_tab,
+            self.invoices_tab,
+            self.posted_invoices_tab,
+        )
+
+        ttk.Button(nav_frame, text="Add Vendor", command=lambda: self.show_section(self.add_vendor_tab)).pack(side="left", padx=(0, 6))
+        ttk.Button(nav_frame, text="View Vendors", command=lambda: self.show_section(self.view_vendors_tab)).pack(side="left", padx=6)
+        ttk.Button(nav_frame, text="Invoices (AP / AR)", command=lambda: self.show_section(self.invoices_tab)).pack(side="left", padx=6)
+        ttk.Button(nav_frame, text="Posted Invoices", command=lambda: self.show_section(self.posted_invoices_tab)).pack(side="left", padx=6)
 
         self._build_add_vendor_tab()
         self._build_view_vendors_tab()
         self._build_invoices_tab()
         self._build_posted_invoices_tab()
+        self.show_section(self.add_vendor_tab)
 
     def sign_out(self):
         self.main_frame.destroy()
         self._build_login()
+
+    def show_section(self, section):
+        for app_section in self.app_sections:
+            app_section.pack_forget()
+        section.pack(fill="both", expand=True)
 
     def _build_add_vendor_tab(self):
         form = ttk.LabelFrame(self.add_vendor_tab, text="Add New Vendor", padding=10)
